@@ -1,0 +1,29 @@
+{
+  "name": "bcycle-ui",
+  "description": "B-Cycle History Viewer",
+  "version": "0.0.0",
+  "keywords": [
+    "b-cycle",
+    "user",
+    "interface"
+  ],
+  "homepage": "https://github.com/chbrown/bcycle-ui",
+  "repository": "git://github.com/chbrown/bcycle-ui.git",
+  "private": true,
+  "author": "Christopher Brown <io@henrian.com> (http://henrian.com)",
+  "license": "MIT",
+  "dependencies": {
+    "angular": "*",
+    "angular-ui-router": "*",
+    "chartist": "*",
+    "lodash": "*",
+    "ngstorage": "gsklee/ngStorage"
+  },
+  "devDependencies": {
+    "babelify": "*",
+    "browserify": "*",
+    "browserify-ngannotate": "*",
+    "typescript": "latest",
+    "watchify": "*"
+  }
+}

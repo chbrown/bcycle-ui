@@ -1,0 +1,10 @@
+<nav>
+  <label>
+    <b>Location:</b>
+    <select ng-model="program_id" ng-change="change()"
+      ng-options="program.id as program.name for program in programs">
+      <option value="">-- Select Program --</option>
+    </select>
+  </label>
+</nav>
+<ui-view></ui-view>
