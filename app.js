@@ -3,11 +3,9 @@ import _ from 'lodash';
 import d3 from 'd3';
 import angular from 'angular';
 import 'angular-ui-router';
-import 'ngstorage';
 
 var app = angular.module('app', [
   'ui.router',
-  'ngStorage',
 ]);
 
 app.config(($stateProvider, $urlRouterProvider) => {
@@ -19,7 +17,7 @@ app.config(($stateProvider, $urlRouterProvider) => {
   .state('programs', {
     url: '/programs',
     templateUrl: 'templates/programs.html',
-    controller: 'programsCtrl',
+    controller: 'configCtrl',
   })
   .state('programs.program', {
     url: '/{id:int}',
@@ -28,17 +26,23 @@ app.config(($stateProvider, $urlRouterProvider) => {
   });
 });
 
-const server = 'http://localhost:1080';
+app.controller('configCtrl', ($scope, $http, $state) => {
+  $scope.server = localStorage.bcycle_server;
 
-app.controller('programsCtrl', ($scope, $http, $state) => {
+  $scope.changeServer = () => {
+    localStorage.bcycle_server = $scope.server;
+    $state.reload();
+  };
+
   // console.log('$state.params: %j', $state.params);
   $scope.program_id = $state.params.id;
-  $http.get(server + '/programs').then(res => {
+  $http.get(localStorage.bcycle_server + '/programs').then(res => {
     $scope.programs = res.data;
   });
-  $scope.change = () => {
+  $scope.changeProgram = () => {
     $state.go('programs.program', {id: $scope.program_id});
   };
+
 });
 
 app.directive('statusGraph', function() {
@@ -49,19 +53,25 @@ app.directive('statusGraph', function() {
     },
     link: function(scope, el) {
       var statuses = scope.statuses;
-      statuses.forEach(status => status.fetched = new Date(status.fetched));
+      // console.log('status-graph', statuses);
+      // statuses.forEach(status => status.fetched = new Date(status.fetched));
 
       var bounds = el[0].getBoundingClientRect();
 
       // mostly from http://bl.ocks.org/mbostock/3883195
-      var margin = {top: 20, right: 20, bottom: 30, left: 50};
+      var margin = {top: 5, right: 10, bottom: 20, left: 30};
       var width = bounds.width;
-      var height = 200;
+      var height = 150;
       var inner_width = width - margin.left - margin.right;
       var inner_height = height - margin.top - margin.bottom;
 
-      var x = d3.time.scale().range([0, inner_width]);
-      var y = d3.scale.linear().range([inner_height, 0]);
+      var x = d3.time.scale()
+        .domain(d3.extent(statuses, status => status.fetched))
+        .range([0, inner_width]);
+      var yMax = d3.max(statuses, status => status.bikes_available + status.docks_available);
+      var y = d3.scale.linear()
+        .domain([0, yMax])
+        .range([inner_height, 0]);
 
       var xAxis = d3.svg.axis().scale(x).orient('bottom');
       var yAxis = d3.svg.axis().scale(y).orient('left');
@@ -77,8 +87,21 @@ app.directive('statusGraph', function() {
         .append('g')
           .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
-      x.domain(d3.extent(statuses, status => status.fetched));
-      y.domain([0, d3.max(statuses, status => status.bikes_available + status.docks_available)]);
+      // vertical grid lines
+      var line = d3.svg.line()
+        .x(status => x(status.fetched))
+        .y(status => y(status.y));
+      var bar = statuses => {
+        var segments = statuses.map(status => {
+          return line([{fetched: status.fetched, y: 0}, {fetched: status.fetched, y: yMax}]);
+        });
+        return segments.length ? segments.join('') : null;
+      };
+      svg.append('g')
+        .attr('class', 'y grid')
+        .append('path')
+          .datum(statuses)
+          .attr('d', bar);
 
       svg.append('path')
         .datum(statuses)
@@ -97,9 +120,10 @@ app.directive('statusGraph', function() {
   };
 });
 
+const status_fields = ['docks_available', 'bikes_available', 'fetched'];
 
 app.controller('programCtrl', ($scope, $http, $state) => {
-  $http.get(server + '/statuses', {params: {programId: $state.params.id}}).then(res => {
+  $http.get(localStorage.bcycle_server + '/statuses', {params: {programId: $state.params.id}}).then(res => {
     var statuses = res.data;
     /**
     {
@@ -121,9 +145,22 @@ app.controller('programCtrl', ($scope, $http, $state) => {
       "fetched": "2015-07-19T21:29:57.644Z"
     }
     */
-    // for (var i = 1, status; (status = statuses[i]) !== undefined; i++) {
-    //   var statuses = $scope.kiosks[status.name];
-    // }
-    $scope.kiosks = _.groupBy(statuses, 'name');
+    // $scope.kiosks = _.groupBy(statuses, status => status.name);
+    var kiosksObj = {};
+    for (var i = 0, status; (status = statuses[i]) !== undefined; i++) {
+      var kiosk = kiosksObj[status.name];
+      if (kiosk === undefined) {
+        kiosk = kiosksObj[status.name] = _.omit(status, status_fields);
+        kiosk.statuses = [];
+      }
+      status.fetched = new Date(status.fetched);
+      kiosk.statuses.push(_.pick(status, status_fields));
+    }
+    var kiosks = _.values(kiosksObj);
+    // wtf is with jslint here:
+    kiosks.forEach((kiosk) => {
+      kiosk.statuses = _.sortBy(kiosk.statuses, 'fetched');
+    });
+    $scope.kiosks = kiosks;
   });
 });

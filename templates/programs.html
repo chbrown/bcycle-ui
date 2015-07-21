@@ -1,10 +1,42 @@
 <nav>
   <label>
     <b>Location:</b>
-    <select ng-model="program_id" ng-change="change()"
+    <select ng-model="program_id" ng-change="changeProgram()"
       ng-options="program.id as program.name for program in programs">
       <option value="">-- Select Program --</option>
     </select>
   </label>
+  <div style="float: right">
+    <label>
+      <b>Server:</b>
+      <input ng-model="server" ng-change="changeServer()" style="width: 200px">
+    </label>
+  </div>
 </nav>
-<ui-view></ui-view>
+
+<ui-view>
+  <section class="hpad">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Coordinates</th>
+          <th># of Kiosks</th>
+          <th>Last updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr ng-repeat="program in programs">
+          <td><a ui-sref="programs.program({id: program.id})">{{program.name}}</a></td>
+          <td title="latitude,longitude">
+            <a href="http://maps.google.com/?ll={{program.latitude}},{{program.longitude}}&z=13">
+              {{program.latitude}},{{program.longitude}}
+            </a>
+          </td>
+          <td>{{program.kiosks}}</td>
+          <td>{{program.last_fetched | date:'medium'}}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</ui-view>

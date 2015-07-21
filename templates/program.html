@@ -1,6 +1,8 @@
 <h3>{{program.name}}</h3>
 
-<section ng-repeat="(kiosk, statuses) in kiosks">
-  <h3>{{kiosk}}</h3>
-  <status-graph statuses="statuses"></status-graph>
-</section>
+<h4 class="hpad">Showing {{kiosks.length}} kiosks</h4>
+
+<div ng-repeat="kiosk in kiosks">
+  <div class="hpad"><b>{{kiosk.name}}</b></div>
+  <status-graph statuses="kiosk.statuses"></status-graph>
+</div>

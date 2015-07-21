@@ -16,8 +16,7 @@
     "angular": "*",
     "angular-ui-router": "*",
     "d3": "*",
-    "lodash": "*",
-    "ngstorage": "gsklee/ngStorage"
+    "lodash": "*"
   },
   "devDependencies": {
     "babelify": "*",
