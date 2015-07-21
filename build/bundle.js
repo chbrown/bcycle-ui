@@ -18,11 +18,9 @@ var _angular2 = _interopRequireDefault(_angular);
 
 require('angular-ui-router');
 
-require('ngstorage');
+var app = _angular2['default'].module('app', ['ui.router']);
 
-var app = _angular2['default'].module('app', ['ui.router', 'ngStorage']);
-
-app.config(function ($stateProvider, $urlRouterProvider) {
+app.config(["$stateProvider", "$urlRouterProvider", function ($stateProvider, $urlRouterProvider) {
   $urlRouterProvider.otherwise(function () {
     return '/programs';
   });
@@ -30,26 +28,31 @@ app.config(function ($stateProvider, $urlRouterProvider) {
   $stateProvider.state('programs', {
     url: '/programs',
     templateUrl: 'templates/programs.html',
-    controller: 'programsCtrl'
+    controller: 'configCtrl'
   }).state('programs.program', {
     url: '/{id:int}',
     templateUrl: 'templates/program.html',
     controller: 'programCtrl'
   });
-});
+}]);
 
-var server = 'http://localhost:1080';
+app.controller('configCtrl', ["$scope", "$http", "$state", function ($scope, $http, $state) {
+  $scope.server = localStorage.bcycle_server;
 
-app.controller('programsCtrl', function ($scope, $http, $state) {
+  $scope.changeServer = function () {
+    localStorage.bcycle_server = $scope.server;
+    $state.reload();
+  };
+
   // console.log('$state.params: %j', $state.params);
   $scope.program_id = $state.params.id;
-  $http.get(server + '/programs').then(function (res) {
+  $http.get(localStorage.bcycle_server + '/programs').then(function (res) {
     $scope.programs = res.data;
   });
-  $scope.change = function () {
+  $scope.changeProgram = function () {
     $state.go('programs.program', { id: $scope.program_id });
   };
-});
+}]);
 
 app.directive('statusGraph', function () {
   return {
@@ -59,23 +62,25 @@ app.directive('statusGraph', function () {
     },
     link: function link(scope, el) {
       var statuses = scope.statuses;
-      statuses.forEach(function (status) {
-        return status.fetched = new Date(status.fetched);
-      });
+      // console.log('status-graph', statuses);
+      // statuses.forEach(status => status.fetched = new Date(status.fetched));
 
-      // var style = getComputedStyle(el[0]);
       var bounds = el[0].getBoundingClientRect();
 
-      var margin = { top: 20, right: 20, bottom: 30, left: 50 };
+      // mostly from http://bl.ocks.org/mbostock/3883195
+      var margin = { top: 5, right: 10, bottom: 20, left: 30 };
       var width = bounds.width;
-      var height = 200;
+      var height = 150;
       var inner_width = width - margin.left - margin.right;
       var inner_height = height - margin.top - margin.bottom;
 
-      console.log('el dims', bounds);
-
-      var x = _d32['default'].time.scale().range([0, inner_width]);
-      var y = _d32['default'].scale.linear().range([inner_height, 0]);
+      var x = _d32['default'].time.scale().domain(_d32['default'].extent(statuses, function (status) {
+        return status.fetched;
+      })).range([0, inner_width]);
+      var yMax = _d32['default'].max(statuses, function (status) {
+        return status.bikes_available + status.docks_available;
+      });
+      var y = _d32['default'].scale.linear().domain([0, yMax]).range([inner_height, 0]);
 
       var xAxis = _d32['default'].svg.axis().scale(x).orient('bottom');
       var yAxis = _d32['default'].svg.axis().scale(y).orient('left');
@@ -88,30 +93,33 @@ app.directive('statusGraph', function () {
 
       var svg = _d32['default'].select(el[0]).append('svg').attr('width', width).attr('height', height).append('g').attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
-      x.domain(_d32['default'].extent(statuses, function (status) {
-        return status.fetched;
-      }));
-      y.domain([0, _d32['default'].max(statuses, function (status) {
-        return status.bikes_available + status.docks_available;
-      })]);
+      // vertical grid lines
+      var line = _d32['default'].svg.line().x(function (status) {
+        return x(status.fetched);
+      }).y(function (status) {
+        return y(status.y);
+      });
+      var bar = function bar(statuses) {
+        var segments = statuses.map(function (status) {
+          return line([{ fetched: status.fetched, y: 0 }, { fetched: status.fetched, y: yMax }]);
+        });
+        return segments.length ? segments.join('') : null;
+      };
+      svg.append('g').attr('class', 'y grid').append('path').datum(statuses).attr('d', bar);
 
       svg.append('path').datum(statuses).attr('class', 'area').attr('d', area);
 
       svg.append('g').attr('class', 'x axis').attr('transform', 'translate(0,' + inner_height + ')').call(xAxis);
 
       svg.append('g').attr('class', 'y axis').call(yAxis);
-      // .append('text')
-      //   .attr('transform', 'rotate(-90)')
-      //   .attr('y', 6)
-      //   .attr('dy', '.71em')
-      //   .style('text-anchor', 'end')
-      //   .text('Price ($)');
     }
   };
 });
 
-app.controller('programCtrl', function ($scope, $http, $state) {
-  $http.get(server + '/statuses', { params: { programId: $state.params.id } }).then(function (res) {
+var status_fields = ['docks_available', 'bikes_available', 'fetched'];
+
+app.controller('programCtrl', ["$scope", "$http", "$state", function ($scope, $http, $state) {
+  $http.get(localStorage.bcycle_server + '/statuses', { params: { programId: $state.params.id } }).then(function (res) {
     var statuses = res.data;
     /**
     {
@@ -133,14 +141,27 @@ app.controller('programCtrl', function ($scope, $http, $state) {
       "fetched": "2015-07-19T21:29:57.644Z"
     }
     */
-    // for (var i = 1, status; (status = statuses[i]) !== undefined; i++) {
-    //   var statuses = $scope.kiosks[status.name];
-    // }
-    $scope.kiosks = _lodash2['default'].groupBy(statuses, 'name');
+    // $scope.kiosks = _.groupBy(statuses, status => status.name);
+    var kiosksObj = {};
+    for (var i = 0, status; (status = statuses[i]) !== undefined; i++) {
+      var kiosk = kiosksObj[status.name];
+      if (kiosk === undefined) {
+        kiosk = kiosksObj[status.name] = _lodash2['default'].omit(status, status_fields);
+        kiosk.statuses = [];
+      }
+      status.fetched = new Date(status.fetched);
+      kiosk.statuses.push(_lodash2['default'].pick(status, status_fields));
+    }
+    var kiosks = _lodash2['default'].values(kiosksObj);
+    // wtf is with jslint here:
+    kiosks.forEach(function (kiosk) {
+      kiosk.statuses = _lodash2['default'].sortBy(kiosk.statuses, 'fetched');
+    });
+    $scope.kiosks = kiosks;
   });
-});
+}]);
 
-},{"angular":4,"angular-ui-router":2,"d3":5,"lodash":6,"ngstorage":7}],2:[function(require,module,exports){
+},{"angular":4,"angular-ui-router":2,"d3":5,"lodash":6}],2:[function(require,module,exports){
 /**
  * State-based routing for AngularJS
  * @version v0.2.15
@@ -54740,163 +54761,4 @@ module.exports = angular;
 }.call(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],7:[function(require,module,exports){
-(function (root, factory) {
-  'use strict';
-
-  if (typeof define === 'function' && define.amd) {
-    define(['angular'], factory);
-  } else if (typeof exports === 'object') {
-    module.exports = factory(require('angular'));
-  } else {
-    // Browser globals (root is window), we don't register it.
-    factory(root.angular);
-  }
-}(this , function (angular) {
-    'use strict';
-
-    /**
-     * @ngdoc overview
-     * @name ngStorage
-     */
-
-    return angular.module('ngStorage', [])
-
-    /**
-     * @ngdoc object
-     * @name ngStorage.$localStorage
-     * @requires $rootScope
-     * @requires $window
-     */
-
-    .factory('$localStorage', _storageFactory('localStorage'))
-
-    /**
-     * @ngdoc object
-     * @name ngStorage.$sessionStorage
-     * @requires $rootScope
-     * @requires $window
-     */
-
-    .factory('$sessionStorage', _storageFactory('sessionStorage'));
-
-    function _storageFactory(storageType) {
-        return [
-            '$rootScope',
-            '$window',
-            '$log',
-            '$timeout',
-
-            function(
-                $rootScope,
-                $window,
-                $log,
-                $timeout
-            ){
-                function isStorageSupported(storageType) {
-
-                    // Some installations of IE, for an unknown reason, throw "SCRIPT5: Error: Access is denied"
-                    // when accessing window.localStorage. This happens before you try to do anything with it. Catch
-                    // that error and allow execution to continue.
-
-                    // fix 'SecurityError: DOM Exception 18' exception in Desktop Safari, Mobile Safari
-                    // when "Block cookies": "Always block" is turned on
-                    var supported;
-                    try {
-                        supported = $window[storageType];
-                    }
-                    catch (err) {
-                        supported = false;
-                    }
-
-                    // When Safari (OS X or iOS) is in private browsing mode, it appears as though localStorage
-                    // is available, but trying to call .setItem throws an exception below:
-                    // "QUOTA_EXCEEDED_ERR: DOM Exception 22: An attempt was made to add something to storage that exceeded the quota."
-                    if (supported && storageType === 'localStorage') {
-                        var key = '__' + Math.round(Math.random() * 1e7);
-
-                        try {
-                            localStorage.setItem(key, key);
-                            localStorage.removeItem(key);
-                        }
-                        catch (err) {
-                            supported = false;
-                        }
-                    }
-
-                    return supported;
-                }
-
-                // #9: Assign a placeholder object if Web Storage is unavailable to prevent breaking the entire AngularJS app
-                var webStorage = isStorageSupported(storageType) || ($log.warn('This browser does not support Web Storage!'), {setItem: function() {}, getItem: function() {}}),
-                    $storage = {
-                        $default: function(items) {
-                            for (var k in items) {
-                                angular.isDefined($storage[k]) || ($storage[k] = items[k]);
-                            }
-
-                            $storage.$sync();
-                            return $storage;
-                        },
-                        $reset: function(items) {
-                            for (var k in $storage) {
-                                '$' === k[0] || (delete $storage[k] && webStorage.removeItem('ngStorage-' + k));
-                            }
-
-                            return $storage.$default(items);
-                        },
-                        $sync: function () {
-                            for (var i = 0, l = webStorage.length, k; i < l; i++) {
-                                // #8, #10: `webStorage.key(i)` may be an empty string (or throw an exception in IE9 if `webStorage` is empty)
-                                (k = webStorage.key(i)) && 'ngStorage-' === k.slice(0, 10) && ($storage[k.slice(10)] = angular.fromJson(webStorage.getItem(k)));
-                            }
-                        }
-                    },
-                    _last$storage,
-                    _debounce;
-
-                $storage.$sync();
-
-                _last$storage = angular.copy($storage);
-
-                $rootScope.$watch(function() {
-                    var temp$storage;
-                    _debounce || (_debounce = $timeout(function() {
-                        _debounce = null;
-
-                        if (!angular.equals($storage, _last$storage)) {
-                            temp$storage = angular.copy(_last$storage);
-                            angular.forEach($storage, function(v, k) {
-                                angular.isDefined(v) && '$' !== k[0] && webStorage.setItem('ngStorage-' + k, angular.toJson(v));
-
-                                delete temp$storage[k];
-                            });
-
-                            for (var k in temp$storage) {
-                                webStorage.removeItem('ngStorage-' + k);
-                            }
-
-                            _last$storage = angular.copy($storage);
-                        }
-                    }, 100, false));
-                });
-
-                // #6: Use `$window.addEventListener` instead of `angular.element` to avoid the jQuery-specific `event.originalEvent`
-                $window.addEventListener && $window.addEventListener('storage', function(event) {
-                    if ('ngStorage-' === event.key.slice(0, 10)) {
-                        event.newValue ? $storage[event.key.slice(10)] = angular.fromJson(event.newValue) : delete $storage[event.key.slice(10)];
-
-                        _last$storage = angular.copy($storage);
-
-                        $rootScope.$apply();
-                    }
-                });
-
-                return $storage;
-            }
-        ];
-    }
-
-}));
-
-},{"angular":4}]},{},[1]);
+},{}]},{},[1]);
