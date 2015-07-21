@@ -15,7 +15,7 @@
   "dependencies": {
     "angular": "*",
     "angular-ui-router": "*",
-    "chartist": "*",
+    "d3": "*",
     "lodash": "*",
     "ngstorage": "gsklee/ngStorage"
   },

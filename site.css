@@ -6,6 +6,10 @@ div,input,main,nav,section,span,textarea{box-sizing:border-box}
 section{margin-top:5px;margin-bottom:5px;padding-top:5px;padding-bottom:5px}
 .vpad{padding-top:10px;padding-bottom:10px}
 .hpad{padding-left:10px;padding-right:10px}
-body{background-color:#FDFDFD;font:16px Times}
+body{background-color:#FDFDFD;font:16px Times;overflow-y:scroll}
 nav{padding:10px}
 section h3{margin:0 10px}
+status-graph{display:block}
+status-graph .axis line,status-graph .axis path{fill:none;stroke:#000;shape-rendering:crispEdges}
+status-graph .tick text{font-size:12px}
+status-graph .area{fill:#4682b4}

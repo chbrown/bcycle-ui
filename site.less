@@ -37,6 +37,8 @@ section {
 body {
   background-color: #FDFDFD;
   font: 16px Times;
+  // always show y-scrollbar so that graph width is calculated correctly
+  overflow-y: scroll;
 }
 nav {
   padding: 10px;
@@ -44,5 +46,19 @@ nav {
 section {
   h3 {
     margin: 0 10px;
+  }
+}
+status-graph {
+  display: block;
+  .axis path, .axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+  }
+  .tick text {
+    font-size: 12px;
+  }
+  .area {
+    fill: steelblue;
   }
 }

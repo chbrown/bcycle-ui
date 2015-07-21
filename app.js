@@ -1,6 +1,6 @@
 /*jslint browser: true, esnext: true */
 import _ from 'lodash';
-import chartist from 'chartist';
+import d3 from 'd3';
 import angular from 'angular';
 import 'angular-ui-router';
 import 'ngstorage';
@@ -48,39 +48,51 @@ app.directive('statusGraph', function() {
       statuses: '=',
     },
     link: function(scope, el) {
-      var n = scope.statuses.length;
-      var labels = new Array(n);
-      var bikes_available = new Array(n);
-      // var docks_available = new Array(n);
+      var statuses = scope.statuses;
+      statuses.forEach(status => status.fetched = new Date(status.fetched));
 
-      var first_status = scope.statuses[0];
+      var bounds = el[0].getBoundingClientRect();
 
-      scope.statuses.forEach((status, i) => {
-        labels[i] = status.fetched;
-        bikes_available[i] = status.bikes_available;
-        // docks_available[i] = status.docks_available;
-      });
+      // mostly from http://bl.ocks.org/mbostock/3883195
+      var margin = {top: 20, right: 20, bottom: 30, left: 50};
+      var width = bounds.width;
+      var height = 200;
+      var inner_width = width - margin.left - margin.right;
+      var inner_height = height - margin.top - margin.bottom;
 
-      new chartist.Line(el[0], {
-        // ['Bikes Available', 'Docks Available']
-        labels: labels,
-        series: [
-          bikes_available,
-        ]
-      }, {
-        high: first_status.bikes_available + first_status.docks_available,
-        low: 0,
-        showArea: true,
-        fullWidth: true,
-        height: 400,
-        axisY: {
-          // onlyInteger: true,
-        },
-        lineSmooth: chartist.Interpolation.none(),
-        // lineSmooth: chartist.Interpolation.simple({divisor: 2}),
-        chartPadding: {},
-      });
+      var x = d3.time.scale().range([0, inner_width]);
+      var y = d3.scale.linear().range([inner_height, 0]);
 
+      var xAxis = d3.svg.axis().scale(x).orient('bottom');
+      var yAxis = d3.svg.axis().scale(y).orient('left');
+
+      var area = d3.svg.area()
+          .x(status => x(status.fetched))
+          .y0(inner_height)
+          .y1(status => y(status.bikes_available));
+
+      var svg = d3.select(el[0]).append('svg')
+          .attr('width', width)
+          .attr('height', height)
+        .append('g')
+          .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+      x.domain(d3.extent(statuses, status => status.fetched));
+      y.domain([0, d3.max(statuses, status => status.bikes_available + status.docks_available)]);
+
+      svg.append('path')
+        .datum(statuses)
+        .attr('class', 'area')
+        .attr('d', area);
+
+      svg.append('g')
+        .attr('class', 'x axis')
+        .attr('transform', 'translate(0,' + inner_height + ')')
+        .call(xAxis);
+
+      svg.append('g')
+        .attr('class', 'y axis')
+        .call(yAxis);
     }
   };
 });
