@@ -22,7 +22,10 @@
     "babelify": "*",
     "browserify": "*",
     "browserify-ngannotate": "*",
+    "clean-css": "*",
+    "less": "*",
     "typescript": "latest",
-    "watchify": "*"
+    "watchify": "*",
+    "watsh": "*"
   }
 }
