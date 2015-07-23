@@ -34,7 +34,6 @@ app.controller('configCtrl', ($scope, $http, $state) => {
     $state.reload();
   };
 
-  // console.log('$state.params: %j', $state.params);
   $scope.program_id = $state.params.id;
   $http.get(localStorage.bcycle_server + '/programs').then(res => {
     $scope.programs = res.data;
@@ -53,8 +52,6 @@ app.directive('statusGraph', function() {
     },
     link: function(scope, el) {
       var statuses = scope.statuses;
-      // console.log('status-graph', statuses);
-      // statuses.forEach(status => status.fetched = new Date(status.fetched));
 
       var bounds = el[0].getBoundingClientRect();
 
@@ -79,7 +76,8 @@ app.directive('statusGraph', function() {
       var area = d3.svg.area()
           .x(status => x(status.fetched))
           .y0(inner_height)
-          .y1(status => y(status.bikes_available));
+          .y1(status => y(status.bikes_available))
+          .interpolate('monotone');
 
       var svg = d3.select(el[0]).append('svg')
           .attr('width', width)

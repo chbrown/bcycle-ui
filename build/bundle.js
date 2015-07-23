@@ -44,7 +44,6 @@ app.controller('configCtrl', ["$scope", "$http", "$state", function ($scope, $ht
     $state.reload();
   };
 
-  // console.log('$state.params: %j', $state.params);
   $scope.program_id = $state.params.id;
   $http.get(localStorage.bcycle_server + '/programs').then(function (res) {
     $scope.programs = res.data;
@@ -62,8 +61,6 @@ app.directive('statusGraph', function () {
     },
     link: function link(scope, el) {
       var statuses = scope.statuses;
-      // console.log('status-graph', statuses);
-      // statuses.forEach(status => status.fetched = new Date(status.fetched));
 
       var bounds = el[0].getBoundingClientRect();
 
@@ -89,7 +86,7 @@ app.directive('statusGraph', function () {
         return x(status.fetched);
       }).y0(inner_height).y1(function (status) {
         return y(status.bikes_available);
-      });
+      }).interpolate('monotone');
 
       var svg = _d32['default'].select(el[0]).append('svg').attr('width', width).attr('height', height).append('g').attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
